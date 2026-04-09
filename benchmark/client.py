@@ -1,6 +1,8 @@
 from typing import Protocol
+import subprocess
 import anthropic
 import openai
+from benchmark.tokens import count_tokens
 
 
 class ModelClient(Protocol):
@@ -52,3 +54,15 @@ class OpenAIClient:
         )
         text = resp.choices[0].message.content
         return text, resp.usage.prompt_tokens, resp.usage.completion_tokens
+
+
+class ClaudeCodeClient:
+    def complete(self, prompt: str, system: str, temperature: float = 0.0) -> tuple[str, int, int]:
+        cmd = ["claude", "-p", prompt]
+        if system:
+            cmd += ["--system", system]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr)
+        text = result.stdout.strip()
+        return text, count_tokens(prompt), count_tokens(text)
